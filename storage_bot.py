@@ -1,12 +1,10 @@
-# storage_bot.py
-# Бот-хранилище с поддержкой видео, текстов и аудио (музыка/голос)
-
 import logging
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-STORAGE_BOT_TOKEN = "8755999254:AAFdhyksIUoAmgNEE0uoPZ6CCUYo2r6gTwg"
+from config import STORAGE_BOT_TOKEN, MAIN_BOT_USERNAME  # токен из config, username пока жёстко
+
 MAIN_BOT_USERNAME = "LN_Video_Maker_Bot"  # username основного бота (без @)
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -15,7 +13,6 @@ logger = logging.getLogger(__name__)
 def init_db():
     conn = sqlite3.connect("user_materials.db")
     c = conn.cursor()
-    # Таблица для текстов
     c.execute("""
         CREATE TABLE IF NOT EXISTS texts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +21,6 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Таблица для видео
     c.execute("""
         CREATE TABLE IF NOT EXISTS videos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,13 +33,12 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Таблица для аудио (музыка и голосовые)
     c.execute("""
         CREATE TABLE IF NOT EXISTS audios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             file_id TEXT NOT NULL,
-            type TEXT NOT NULL,  -- 'audio' или 'voice'
+            type TEXT NOT NULL,
             duration INTEGER,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -155,12 +150,10 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("selaudio_"):
         audio_id = data.split("_")[1]
         context.user_data["selected_audio"] = audio_id
-        # Если уже есть выбранное видео, можно сформировать ссылку
         if "selected_video" in context.user_data:
             video_id = context.user_data.pop("selected_video")
             text_id = context.user_data.get("selected_text")
             audio_id = context.user_data.pop("selected_audio")
-            # Формируем параметр: video_id, text_id, audio_id
             param = f"v{video_id}_t{text_id if text_id else ''}_a{audio_id}"
             link = f"https://t.me/{MAIN_BOT_USERNAME}?start={param}"
             await query.edit_message_text(
@@ -172,7 +165,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("✅ Аудио выбрано. Теперь выберите видео или отправьте команду /myvideos.")
             return
 
-# ----- Старые обработчики для сохранения материалов -----
+# ----- Обработчики для сохранения материалов -----
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     video = update.message.video
@@ -215,7 +208,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Произошла ошибка при сохранении текста.")
 
 async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет аудиофайл или голосовое сообщение."""
     user_id = update.effective_user.id
     audio = update.message.audio
     voice = update.message.voice
