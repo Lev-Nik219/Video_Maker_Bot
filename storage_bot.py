@@ -1,13 +1,43 @@
 # storage_bot.py
-# Бот-хранилище с поддержкой видео, текстов и аудио (музыка/голос)
+# Бот-хранилище с поддержкой видео, текстов и аудио
+# Адаптирован для Render (включает Flask для открытия порта)
 
 import logging
 import sqlite3
+import threading
+import time
+import os
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 from config import STORAGE_BOT_TOKEN  # импортируем только токен
 
+# ----------------------------------------------------------
+# Flask-сервер (только для открытия порта на Render)
+# ----------------------------------------------------------
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "Storage Bot is running", 200
+
+@flask_app.route('/favicon.ico')
+def favicon():
+    return "", 204
+
+def run_flask():
+    """Запуск Flask в отдельном потоке."""
+    try:
+        port = int(os.environ.get('PORT', 10000))
+        logging.info(f"Starting Flask on port {port}")
+        flask_app.run(host='0.0.0.0', port=port)
+    except Exception as e:
+        logging.error(f"Flask failed to start: {e}")
+
+# ----------------------------------------------------------
+# Основная логика бота
+# ----------------------------------------------------------
 MAIN_BOT_USERNAME = "LN_Video_Maker_Bot"  # username основного бота (без @)
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -240,7 +270,16 @@ async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Ошибка при сохранении аудио")
         await update.message.reply_text("❌ Произошла ошибка при сохранении аудио.")
 
+# ----------------------------------------------------------
+# Основная функция запуска
+# ----------------------------------------------------------
 def main():
+    # Запуск Flask в фоновом потоке (для Render)
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    logger.info("Flask-сервер запущен в фоновом потоке")
+    time.sleep(2)  # даём время Flask открыть порт
+
     init_db()
     app = Application.builder().token(STORAGE_BOT_TOKEN).build()
     app.add_handler(CommandHandler("myvideos", myvideos))

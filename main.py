@@ -4,6 +4,7 @@
 
 import asyncio
 import threading
+import time
 import logging
 import os
 import sqlite3
@@ -17,7 +18,7 @@ from telegram.ext import (
     ContextTypes, ConversationHandler
 )
 
-# Импорты наших модулей
+# Импорты наших модулей (убедитесь, что они есть в проекте)
 from config import BOT_TOKEN, STORAGE_BOT_TOKEN
 from ideas import get_script
 from text_to_speech_silero import text_to_speech
@@ -39,9 +40,13 @@ def favicon():
     return "", 204
 
 def run_flask():
-    """Запуск Flask в отдельном потоке."""
-    port = int(os.environ.get('PORT', 10000))
-    flask_app.run(host='0.0.0.0', port=port)
+    """Запуск Flask в отдельном потоке с логированием."""
+    try:
+        port = int(os.environ.get('PORT', 10000))
+        logging.info(f"Starting Flask on port {port}")
+        flask_app.run(host='0.0.0.0', port=port)
+    except Exception as e:
+        logging.error(f"Flask failed to start: {e}")
 
 # ----------------------------------------------------------
 # Настройка логирования
@@ -585,16 +590,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return await start(update, context)
 
 # ----------------------------------------------------------
-# Основная функция
+# Основная асинхронная функция запуска бота
 # ----------------------------------------------------------
-async def main():
-    # Запуск Flask в фоновом потоке (для Render)
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    logger.info("Flask-сервер запущен в фоновом потоке")
-    await asyncio.sleep(2)  # даём время Flask подняться
-
-    # Создаём приложение бота
+async def run_bot():
+    """Создаёт и запускает приложение бота."""
     app = Application.builder().token(BOT_TOKEN).read_timeout(60).write_timeout(60).build()
 
     conv_handler = ConversationHandler(
@@ -617,5 +616,24 @@ async def main():
     logger.info("Бот запущен и готов к работе...")
     await app.run_polling()
 
+# ----------------------------------------------------------
+# Точка входа
+# ----------------------------------------------------------
+def main():
+    """Запускает Flask в фоновом потоке, затем бота."""
+    # Запуск Flask в отдельном потоке
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    logger.info("Flask-сервер запущен в фоновом потоке")
+    time.sleep(3)  # Даём время Flask запуститься и открыть порт
+
+    # Запуск бота
+    try:
+        asyncio.run(run_bot())
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен пользователем")
+    except Exception as e:
+        logger.exception(f"Критическая ошибка: {e}")
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
