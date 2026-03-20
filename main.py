@@ -21,7 +21,7 @@ from telegram.ext import (
 # Импорты наших модулей (убедитесь, что они есть в проекте)
 from config import BOT_TOKEN, STORAGE_BOT_TOKEN
 from ideas import get_script
-from text_to_speech_silero import text_to_speech
+from text_to_speech import text_to_speech
 from video_fetcher import fetch_videos_for_theme
 from video_editor import create_video_with_audio, mix_audio_files
 from utils import generate_unique_filename
