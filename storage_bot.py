@@ -1,9 +1,12 @@
+# storage_bot.py
+# Бот-хранилище с поддержкой видео, текстов и аудио (музыка/голос)
+
 import logging
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-from config import STORAGE_BOT_TOKEN, MAIN_BOT_USERNAME  # токен из config, username пока жёстко
+from config import STORAGE_BOT_TOKEN  # импортируем только токен
 
 MAIN_BOT_USERNAME = "LN_Video_Maker_Bot"  # username основного бота (без @)
 
