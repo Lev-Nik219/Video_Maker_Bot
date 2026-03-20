@@ -1,7 +1,3 @@
-# storage_bot.py
-# Бот-хранилище с поддержкой видео, текстов и аудио
-# Адаптирован для Render (включает Flask для открытия порта)
-
 import logging
 import sqlite3
 import threading
@@ -13,8 +9,10 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 from config import STORAGE_BOT_TOKEN
 
+MAIN_BOT_USERNAME = "LN_Video_Maker_Bot"  # username основного бота (без @)
+
 # ----------------------------------------------------------
-# Flask-сервер для поддержания порта на Render
+# Flask-сервер для порта
 # ----------------------------------------------------------
 flask_app = Flask(__name__)
 
@@ -37,8 +35,6 @@ def run_flask():
 # ----------------------------------------------------------
 # Основная логика бота
 # ----------------------------------------------------------
-MAIN_BOT_USERNAME = "LN_Video_Maker_Bot"  # username основного бота (без @)
-
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -196,6 +192,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("✅ Аудио выбрано. Теперь выберите видео или отправьте команду /myvideos.")
             return
 
+# ----- Обработчики для сохранения материалов -----
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     video = update.message.video
@@ -268,7 +265,6 @@ async def handle_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Произошла ошибка при сохранении аудио.")
 
 def main():
-    # Запуск Flask в фоновом потоке (для Render)
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     logger.info("Flask-сервер запущен в фоновом потоке")

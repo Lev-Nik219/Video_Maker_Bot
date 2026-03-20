@@ -13,11 +13,12 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters,
     ContextTypes, ConversationHandler
 )
+from telegram.constants import ParseMode
 
-# Импорты наших модулей (убедитесь, что они есть в проекте)
+# Импорты модулей проекта
 from config import BOT_TOKEN, STORAGE_BOT_TOKEN
 from ideas import get_script
-from text_to_speech import text_to_speech   # используем gTTS (лёгкий)
+from text_to_speech import text_to_speech   # gTTS (лёгкий)
 from video_fetcher import fetch_videos_for_theme
 from video_editor import create_video_with_audio, mix_audio_files
 from utils import generate_unique_filename
@@ -53,25 +54,20 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-# Создаём необходимые папки
 os.makedirs("media", exist_ok=True)
 os.makedirs("cache/thumbnails", exist_ok=True)
 
-# ----------------------------------------------------------
-# Константы и маппинги
-# ----------------------------------------------------------
 THEME_MAP = {
     "🤖 Искусственный интеллект": "ai",
     "💪 Мужская мотивация": "motivation",
     "🔥 Тренды России": "trends"
 }
 
-# Состояния для ConversationHandler
 SELECTING_ACTION, COLLECTING_VIDEOS, WAITING_TEXT, CONFIRM_GENERATION, \
     WAITING_AUDIO, AFTER_AUDIO, WAITING_EXTRA_AUDIO, WAITING_VIDEO_AFTER_TEXT = range(8)
 
 # ----------------------------------------------------------
-# Работа с базой данных (общая для обоих ботов)
+# Работа с базой данных (общая)
 # ----------------------------------------------------------
 def get_video_file_id(video_id: int, user_id: int):
     conn = sqlite3.connect("user_materials.db")
@@ -89,9 +85,6 @@ def get_text_by_id(text_id: int, user_id: int):
     conn.close()
     return row[0] if row else None
 
-# ----------------------------------------------------------
-# Скачивание файлов из storage бота
-# ----------------------------------------------------------
 async def download_file_from_storage(file_id: str, save_path: str) -> str:
     url = f"https://api.telegram.org/bot{STORAGE_BOT_TOKEN}/getFile?file_id={file_id}"
     async with httpx.AsyncClient() as client:
@@ -124,24 +117,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard=True)
     await update.message.reply_text(
         "Выберите действие:\n\n"
-        "📹 Мои видео – перешлите одно или несколько видео из Storage Bot\n"
-        "📝 Мой текст – перешлите текст из Storage Bot (только один)\n"
-        "🎵 Мое аудио – перешлите музыку или голосовое из Storage Bot\n"
+        "📹 Мои видео – перешлите одно или несколько видео из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a>\n"
+        "📝 Мой текст – перешлите текст из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a> (только один)\n"
+        "🎵 Мое аудио – перешлите музыку или голосовое из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a>\n"
         "🌐 Pexels/Pixabay – автоматический режим с выбором темы",
+        parse_mode=ParseMode.HTML,
         reply_markup=reply_markup
     )
     return SELECTING_ACTION
 
 # ----------------------------------------------------------
-# Обработчик выбора действия (SELECTING_ACTION)
+# Обработчик выбора действия
 # ----------------------------------------------------------
 async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
     if text == "📹 Мои видео":
         context.user_data["videos"] = []
         await update.message.reply_text(
-            "Пересылайте видео из Storage Bot одно за другим.\n"
+            "Пересылайте видео из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a> одно за другим.\n"
             "Когда закончите, нажмите кнопку '✅ Готово, видео выбраны'.",
+            parse_mode=ParseMode.HTML,
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton("✅ Готово, видео выбраны")]],
                 resize_keyboard=True
@@ -150,13 +145,15 @@ async def handle_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         return COLLECTING_VIDEOS
     elif text == "📝 Мой текст":
         await update.message.reply_text(
-            "Перешлите один текст из Storage Bot.\n"
-            "(Только один текстовый фрагмент будет использован.)"
+            "Перешлите один текст из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a>.\n"
+            "(Только один текстовый фрагмент будет использован.)",
+            parse_mode=ParseMode.HTML
         )
         return WAITING_TEXT
     elif text == "🎵 Мое аудио":
         await update.message.reply_text(
-            "Перешлите один аудиофайл или голосовое сообщение из Storage Bot."
+            "Перешлите один аудиофайл или голосовое сообщение из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a>.",
+            parse_mode=ParseMode.HTML
         )
         return WAITING_AUDIO
     elif text == "🌐 Pexels/Pixabay":
@@ -311,8 +308,9 @@ async def waiting_video_after_text(update: Update, context: ContextTypes.DEFAULT
     if text == "📹 Выбрать видео":
         context.user_data["videos"] = []
         await update.message.reply_text(
-            "Пересылайте видео из Storage Bot одно за другим.\n"
+            "Пересылайте видео из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a> одно за другим.\n"
             "Когда закончите, нажмите кнопку '✅ Готово, видео выбраны'.",
+            parse_mode=ParseMode.HTML,
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton("✅ Готово, видео выбраны")]],
                 resize_keyboard=True
@@ -411,8 +409,9 @@ async def after_audio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     if text == "📹 Выбрать видео":
         context.user_data["videos"] = []
         await update.message.reply_text(
-            "Пересылайте видео из Storage Bot одно за другим.\n"
+            "Пересылайте видео из <a href='https://t.me/NL_SavedVideos_bot'>Storage Bot</a> одно за другим.\n"
             "Когда закончите, нажмите кнопку '✅ Готово, видео выбраны'.",
+            parse_mode=ParseMode.HTML,
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton("✅ Готово, видео выбраны")]],
                 resize_keyboard=True
@@ -588,13 +587,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # Точка входа
 # ----------------------------------------------------------
 def main():
-    # Запуск Flask в фоновом потоке
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     logger.info("Flask-сервер запущен в фоновом потоке")
-    time.sleep(3)  # даём время Flask открыть порт
+    time.sleep(3)
 
-    # Запуск бота (синхронно, без asyncio.run)
     app = Application.builder().token(BOT_TOKEN).read_timeout(60).write_timeout(60).build()
 
     conv_handler = ConversationHandler(
@@ -615,7 +612,7 @@ def main():
     app.add_handler(conv_handler)
 
     logger.info("Бот запущен и готов к работе...")
-    app.run_polling()  # запускаем бота (это блокирующий вызов)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

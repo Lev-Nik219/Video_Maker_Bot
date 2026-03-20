@@ -19,3 +19,7 @@ __pycache__/
 
 # Логи
 *.log
+
+# IDE
+.vscode/
+.idea/
